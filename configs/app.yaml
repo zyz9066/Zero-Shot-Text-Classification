@@ -1,0 +1,8 @@
+app:
+  version: 0.1.0
+model:
+  model_dir: ./models
+  hf_home: ./.cache/huggingface
+  transformers_cache: ./.cache/huggingface/transformers
+minio:
+  bucket: zeroshot_learning_output
