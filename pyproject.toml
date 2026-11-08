@@ -1,0 +1,41 @@
+[project]
+name = "zero-shot-text-classification"
+version = "0.1.0"
+description = "A Streamlit foundation for zero-shot text classification"
+requires-python = ">=3.11"
+dependencies = [
+    "PyYAML>=6.0.2",
+    "streamlit>=1.39",
+]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[dependency-groups]
+dev = [
+    "mypy>=1.14",
+    "pytest>=8.3",
+    "ruff>=0.9",
+    "types-pyyaml>=6.0.12.20261103",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+
+[tool.ruff]
+line-length = 88
+target-version = "py311"
+extend-exclude = [".specify"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+files = ["app"]
+
+[tool.setuptools.packages.find]
+include = ["app*"]

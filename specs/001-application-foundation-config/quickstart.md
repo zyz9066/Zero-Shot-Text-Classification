@@ -5,13 +5,15 @@
 - Python 3.11 or later.
 - `uv` installed and available on `PATH`.
 - No Hugging Face token or MinIO service credentials are required to start the application shell.
+- The commands below select Python 3.12, which is within the project's supported Python 3.11+ range.
 
 ## Sync the locked environment
 
-From the repository root:
+From the repository root. On Windows, place the virtual environment on a local drive if the repository is on a network or quota-limited drive:
 
 ```powershell
-uv sync --locked
+$env:UV_PROJECT_ENVIRONMENT = Join-Path $env:LOCALAPPDATA "uv\venvs\zero-shot-text-classification"
+uv sync --python 3.12 --locked
 ```
 
 Expected result: the project environment is synchronized from `pyproject.toml` and the committed `uv.lock`. The command fails rather than silently changing the lock if the files disagree.
@@ -19,7 +21,7 @@ Expected result: the project environment is synchronized from `pyproject.toml` a
 ## Start the application shell
 
 ```powershell
-uv run --locked streamlit run app/streamlit_app.py
+uv run --python 3.12 --locked streamlit run app/streamlit_app.py
 ```
 
 Open the local address printed by Streamlit. The initial page must render without model or MinIO credentials.
@@ -29,7 +31,7 @@ Open the local address printed by Streamlit. The initial page must render withou
 Run the deterministic foundation tests:
 
 ```powershell
-uv run --locked pytest tests/unit tests/smoke
+uv run --python 3.12 --locked pytest tests/unit tests/smoke
 ```
 
 Expected coverage includes environment-over-YAML-over-default precedence, documented defaults, missing and malformed settings, deferred service validation, and safe errors/logs. These tests must not download models or contact MinIO.
@@ -37,9 +39,10 @@ Expected coverage includes environment-over-YAML-over-default precedence, docume
 Run static checks:
 
 ```powershell
-uv run --locked ruff check .
-uv run --locked ruff format --check .
-uv run --locked mypy app
+uv run --python 3.12 --locked ruff check .
+uv run --python 3.12 --locked ruff format --check .
+$env:MYPY_CACHE_DIR = Join-Path $env:LOCALAPPDATA "mypy-cache\zero-shot-text-classification"
+uv run --python 3.12 --locked mypy --cache-dir $env:MYPY_CACHE_DIR app
 ```
 
 ## Configuration inputs

@@ -1,0 +1,33 @@
+import io
+import json
+from pathlib import Path
+
+from app.utils.logging_config import configure_logging, log_event
+
+
+def test_structured_events_exclude_secrets_input_text_and_absolute_paths() -> None:
+    output = io.StringIO()
+    logger = configure_logging(logger_name="test.safe_logging", stream=output)
+
+    log_event(
+        logger,
+        "configuration.validation_failed",
+        setting_name="MINIO_SECRET_KEY",
+        source_kind="environment",
+        outcome="invalid",
+        secret="super-secret-value",
+        access_key="access-value",
+        input_text="sensitive user input",
+        path=str(Path("C:/Users/private/local-settings.yaml")),
+    )
+
+    record = json.loads(output.getvalue())
+    serialized = json.dumps(record)
+
+    assert record["event"] == "configuration.validation_failed"
+    assert record["setting_name"] == "MINIO_SECRET_KEY"
+    assert record["outcome"] == "invalid"
+    assert "super-secret-value" not in serialized
+    assert "access-value" not in serialized
+    assert "sensitive user input" not in serialized
+    assert "C:/Users/private/local-settings.yaml" not in serialized

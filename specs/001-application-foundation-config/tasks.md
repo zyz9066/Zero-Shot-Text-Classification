@@ -12,14 +12,14 @@
 
 **Purpose**: Establish the Python project and repository hygiene for the planned application structure.
 
-- [ ] T001 [P] Define Python 3.11+ project metadata, Streamlit and PyYAML runtime dependencies, pytest/Ruff/mypy development tools, and tool configuration in `pyproject.toml`; generate the reproducible `uv.lock`.
-- [ ] T002 [P] Update `.gitignore` to exclude `.env` files, `.venv/`, `models/`, and `.cache/huggingface/` while preserving non-secret examples.
+- [X] T001 [P] Define Python 3.11+ project metadata, Streamlit and PyYAML runtime dependencies, pytest/Ruff/mypy development tools, and tool configuration in `pyproject.toml`; generate the reproducible `uv.lock`.
+- [X] T002 [P] Update `.gitignore` to exclude `.env` files, `.venv/`, `models/`, and `.cache/huggingface/` while preserving non-secret examples.
 
 ## Phase 2: Foundational
 
 **Purpose**: Create the shared settings types required before the application story.
 
-- [ ] T003 Define immutable, type-annotated application, model-runtime, and MinIO settings plus the safe configuration-issue type in `app/config/settings.py`.
+- [X] T003 Define immutable, type-annotated application, model-runtime, and MinIO settings plus the safe configuration-issue type in `app/config/settings.py`.
 
 ## Phase 3: User Story 1 - Configure and launch the application (Priority: P1)
 
@@ -29,16 +29,16 @@
 
 ### Tests for User Story 1
 
-- [ ] T004 [P] [US1] Add configuration-loader unit tests for environment-over-YAML-over-default precedence, documented defaults, malformed/non-mapping YAML, invalid types and boolean values, unknown keys, explicit missing config paths, deferred service validation, and secret/path-safe errors in `tests/unit/test_config_loader.py`.
-- [ ] T005 [P] [US1] Add logging configuration tests that require credentials, tokens, raw input text, and absolute paths to be absent from emitted events in `tests/unit/test_logging_config.py`.
-- [ ] T006 [P] [US1] Add a Streamlit AppTest smoke test proving the initial shell renders when model and MinIO credentials are absent in `tests/smoke/test_app_startup.py`.
+- [X] T004 [P] [US1] Add configuration-loader unit tests for environment-over-YAML-over-default precedence, documented defaults, malformed/non-mapping YAML, invalid types and boolean values, unknown keys, explicit missing config paths, deferred service validation, and secret/path-safe errors in `tests/unit/test_config_loader.py`.
+- [X] T005 [P] [US1] Add logging configuration tests that require credentials, tokens, raw input text, and absolute paths to be absent from emitted events in `tests/unit/test_logging_config.py`.
+- [X] T006 [P] [US1] Add a Streamlit AppTest smoke test proving the initial shell renders when model and MinIO credentials are absent in `tests/smoke/test_app_startup.py`.
 
 ### Implementation for User Story 1
 
-- [ ] T007 [P] [US1] Implement YAML parsing with safe loading, explicit environment/YAML/default precedence, typed conversion, scoped validation, and redacted configuration errors in `app/config/loader.py`.
-- [ ] T008 [P] [US1] Configure structured standard-library logging with stable event names and a non-sensitive field allow-list in `app/utils/logging_config.py`.
-- [ ] T009 [P] [US1] Add non-secret application, model/cache, and MinIO bucket defaults matching the configuration contract in `configs/app.yaml`.
-- [ ] T010 [US1] Implement the initial Streamlit entry point that loads only application-level settings, initializes safe logging, and renders the shell without requiring model or MinIO credentials in `app/streamlit_app.py`.
+- [X] T007 [P] [US1] Implement YAML parsing with safe loading, explicit environment/YAML/default precedence, typed conversion, scoped validation, and redacted configuration errors in `app/config/loader.py`.
+- [X] T008 [P] [US1] Configure structured standard-library logging with stable event names and a non-sensitive field allow-list in `app/utils/logging_config.py`.
+- [X] T009 [P] [US1] Add non-secret application, model/cache, and MinIO bucket defaults matching the configuration contract in `configs/app.yaml`.
+- [X] T010 [US1] Implement the initial Streamlit entry point that loads only application-level settings, initializes safe logging, and renders the shell without requiring model or MinIO credentials in `app/streamlit_app.py`.
 
 **Checkpoint**: User Story 1 is independently usable when the shell starts without service credentials and the focused unit and smoke tests pass.
 
@@ -46,8 +46,8 @@
 
 **Purpose**: Keep the developer validation guide accurate and run the feature's required quality checks.
 
-- [ ] T011 Align the feature quickstart's configuration names, launch command, expected behavior, and test commands with the implemented foundation in `specs/001-application-foundation-config/quickstart.md`.
-- [ ] T012 Run pytest, Ruff lint/format checks, and mypy using the locked project environment; resolve feature-related failures in `tests/`, `app/`, and `pyproject.toml`.
+- [X] T011 Align the feature quickstart's configuration names, launch command, expected behavior, and test commands with the implemented foundation in `specs/001-application-foundation-config/quickstart.md`.
+- [X] T012 Run pytest, Ruff lint/format checks, and mypy using the locked project environment; resolve feature-related failures in `tests/`, `app/`, and `pyproject.toml`.
 
 ## Dependencies and Execution Order
 
@@ -98,3 +98,7 @@ Task: T006 Add shell startup smoke test in tests/smoke/test_app_startup.py
 - Every task follows the required checkbox, sequential ID, optional parallel marker, required user-story label for story tasks, and concrete file-path format.
 - `[P]` marks tasks that can work independently on different files; non-parallel tasks have ordering or shared-file dependencies.
 - Task IDs T001-T012 are sequential; all tasks name the files or directories they create, update, or validate.
+
+## Phase 5: Convergence
+
+- [X] T013 Make the documented Streamlit launch command reliably import `app` from the repository root and add or adjust a launch regression check per FR-008 (partial)
