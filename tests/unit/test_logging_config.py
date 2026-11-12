@@ -31,3 +31,21 @@ def test_structured_events_exclude_secrets_input_text_and_absolute_paths() -> No
     assert "access-value" not in serialized
     assert "sensitive user input" not in serialized
     assert "C:/Users/private/local-settings.yaml" not in serialized
+
+
+def test_model_identifiers_are_logged_only_when_they_match_repository_syntax() -> None:
+    output = io.StringIO()
+    logger = configure_logging(
+        logger_name="test.model_identifier_logging", stream=output
+    )
+
+    log_event(logger, "model.download", model_id="org/public-model", outcome="success")
+    log_event(
+        logger, "model.download", model_id="token=private-value", outcome="failure"
+    )
+
+    records = [json.loads(line) for line in output.getvalue().splitlines()]
+
+    assert records[0]["model_id"] == "org/public-model"
+    assert "model_id" not in records[1]
+    assert "private-value" not in output.getvalue()

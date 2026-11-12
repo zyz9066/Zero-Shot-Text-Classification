@@ -23,6 +23,18 @@ The model catalog is `configs/models.yaml`. It contains non-secret model identif
 - `MoritzLaurer/deberta-v3-base-zeroshot-v2.0`
 - `facebook/bart-large-mnli`
 
+Each entry uses `model_id`, `display_name`, and `task`; `revision` may specify a branch, tag, or commit:
+
+```yaml
+models:
+  - model_id: org/model
+    display_name: Example model
+    task: zero-shot-classification
+    revision: v1.2
+```
+
+When `revision` is omitted, the current upstream default is resolved to an immutable commit before the snapshot is downloaded. The completed app-managed copy records the requested and resolved revisions in its local manifest.
+
 Runtime paths continue to come from feature 001's centralized settings. Defaults are `MODEL_DIR=./models`, `HF_HOME=./.cache/huggingface`, and `TRANSFORMERS_CACHE=./.cache/huggingface/transformers`; environment variables override documented YAML values. Keep model files, caches, tokens, and credentials out of Git.
 
 ## Start the application
@@ -36,11 +48,13 @@ Open the local URL printed by Streamlit and navigate to Model Management. Applic
 ## Verify model lifecycle behavior
 
 1. Inspect both configured models and their local availability/revision information.
-2. Request a missing public model and verify that progress is shown and the model is marked ready only after completion.
+2. Select one or more missing public models and request downloads. The status view reports download/materialization progress and marks a model ready only after its complete app-managed copy and provenance manifest are in place.
 3. Refresh the catalog and request the same ready model again; it must not start another download.
 4. Exercise interrupted/failed download handling with automated tests; partial contents must not appear ready.
-5. Request deletion of a selected local model, cancel once to verify no change, then confirm and refresh availability.
-6. Request cache cleanup and review the preview/scope. Cancel once to verify no change. After confirmation, verify that app-managed models and HF authentication state remain intact while the configured Hub cache is cleaned.
+5. Request deletion of a selected local model, leave its confirmation unchecked once to verify no change, then confirm and refresh availability.
+6. Request cache cleanup and review the configured cache path, repository/revision counts, incomplete downloads, and estimated space to reclaim. Leave its separate confirmation unchecked once to verify no change. After confirmation, verify that app-managed models and HF authentication state remain intact while the configured Hub cache is cleaned.
+
+The management page is intended only for local or otherwise trusted environments; navigation visibility is not authentication or authorization.
 
 ## Run automated checks
 
