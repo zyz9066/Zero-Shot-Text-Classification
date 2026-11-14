@@ -4,10 +4,13 @@ import re
 import sys
 from typing import TextIO
 
-_ALLOWED_FIELDS = {"setting_name", "source_kind", "outcome"}
+_ALLOWED_FIELDS = {"setting_name", "source_kind", "outcome", "model_id"}
 _SAFE_SETTING_NAME = re.compile(r"[A-Z][A-Z0-9_]*\Z")
 _SAFE_SOURCE_KINDS = {"environment", "yaml", "default"}
 _SAFE_OUTCOMES = {"success", "failure", "invalid", "unavailable", "started"}
+_SAFE_MODEL_ID = re.compile(
+    r"[A-Za-z0-9][A-Za-z0-9._-]*(?:/[A-Za-z0-9][A-Za-z0-9._-]*)?\Z"
+)
 _SAFE_EVENT_NAME = re.compile(r"[a-z][a-z0-9_.-]*\Z")
 
 
@@ -40,6 +43,13 @@ def log_event(logger: logging.Logger, event_name: str, **fields: object) -> None
         elif key == "source_kind" and value in _SAFE_SOURCE_KINDS:
             record[key] = value
         elif key == "outcome" and value in _SAFE_OUTCOMES:
+            record[key] = value
+        elif (
+            key == "model_id"
+            and len(value) <= 200
+            and ".." not in value
+            and _SAFE_MODEL_ID.fullmatch(value)
+        ):
             record[key] = value
 
     logger.info(json.dumps(record, sort_keys=True))

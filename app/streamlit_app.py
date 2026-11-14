@@ -24,6 +24,15 @@ except ConfigurationError as error:
 
 log_event(logger, "application.startup", outcome="started")
 st.set_page_config(page_title="Zero-Shot Text Classification")
-st.title("Zero-Shot Text Classification")
-st.caption(f"Application version {settings.app_version}")
-st.write("Application foundation is ready.")
+
+
+def render_overview() -> None:
+    st.title("Zero-Shot Text Classification")
+    st.caption(f"Application version {settings.app_version}")
+    st.write("Application foundation is ready.")
+
+
+overview_page = st.Page(render_overview, title="Overview", default=True)
+model_management_page = st.Page("pages/model_management.py", title="Model Management")
+navigation = st.navigation([overview_page, model_management_page])
+navigation.run()
