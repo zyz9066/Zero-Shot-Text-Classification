@@ -19,7 +19,7 @@ from app.services.huggingface_hub_adapter import (
 )
 from app.utils.logging_config import configure_logging, log_event
 
-Availability = Literal["missing", "downloading", "ready", "failed"]
+Availability = Literal["missing", "downloading", "ready", "failed", "incomplete"]
 OperationKind = Literal["download", "delete", "cache_cleanup"]
 OperationState = Literal["running", "succeeded", "failed", "cancelled"]
 _REVISION_PATTERN = re.compile(r"[0-9a-f]{40}\Z")
@@ -377,17 +377,6 @@ class ModelManager:
                     progress=operation.progress,
                     safe_message=operation.safe_message,
                 )
-            if operation.state == "failed":
-                return ModelStatus(
-                    model_id=model.model_id,
-                    display_name=model.display_name,
-                    task=model.task,
-                    requested_revision=model.requested_revision,
-                    availability="failed",
-                    resolved_revision=operation.resolved_revision,
-                    safe_message=operation.safe_message,
-                )
-
         manifest = self._read_manifest(model)
         if manifest is not None:
             return ModelStatus(
@@ -398,6 +387,41 @@ class ModelManager:
                 availability="ready",
                 resolved_revision=manifest["resolved_revision"],
             )
+        if self._model_directory_has_artifacts(model):
+            safe_message = (
+                operation.safe_message
+                if operation is not None
+                and operation.kind == "download"
+                and operation.state == "failed"
+                else "Incomplete model files exist without a valid completion manifest"
+            )
+            return ModelStatus(
+                model_id=model.model_id,
+                display_name=model.display_name,
+                task=model.task,
+                requested_revision=model.requested_revision,
+                availability="incomplete",
+                resolved_revision=(
+                    operation.resolved_revision
+                    if operation is not None and operation.kind == "download"
+                    else None
+                ),
+                safe_message=safe_message,
+            )
+        if (
+            operation is not None
+            and operation.kind == "download"
+            and operation.state == "failed"
+        ):
+            return ModelStatus(
+                model_id=model.model_id,
+                display_name=model.display_name,
+                task=model.task,
+                requested_revision=model.requested_revision,
+                availability="failed",
+                resolved_revision=operation.resolved_revision,
+                safe_message=operation.safe_message,
+            )
         return ModelStatus(
             model_id=model.model_id,
             display_name=model.display_name,
@@ -405,6 +429,10 @@ class ModelManager:
             requested_revision=model.requested_revision,
             availability="missing",
         )
+
+    def _model_directory_has_artifacts(self, model: ConfiguredModel) -> bool:
+        model_path = self.model_directory(model.model_id)
+        return model_path.exists() or model_path.is_symlink()
 
     def _read_manifest(self, model: ConfiguredModel) -> dict[str, str | None] | None:
         try:

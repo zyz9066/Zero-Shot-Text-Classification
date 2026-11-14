@@ -38,7 +38,8 @@ An observable status for a configured model, derived from catalog configuration,
 | `missing` | No complete app-managed installation exists |
 | `downloading` | A download/materialization operation is active for this model |
 | `ready` | Complete app-managed model and valid manifest exist |
-| `failed` | The most recent operation failed; partial artifacts are not ready |
+| `failed` | The most recent download operation failed and no app-managed artifacts remain |
+| `incomplete` | App-managed files exist, but no valid completion manifest matches the configured model/revision |
 
 The exact in-memory representation is an implementation detail. Refreshing status must not require a Hub request for already installed models.
 
@@ -76,7 +77,7 @@ The preview contains no token or secret. Executing cleanup requires separate exp
 ## State and lifecycle rules
 
 - A catalog entry begins as `configured` and resolves to `missing` or `ready` after local inspection.
-- A download transitions `missing` -> `downloading` -> `ready` only after a complete app-managed copy and manifest are in place; failure transitions to `failed` and leaves no ready marker for partial content.
+- A download transitions `missing` -> `downloading` -> `ready` only after a complete app-managed copy and manifest are in place. A failed operation with no target artifacts is `failed`; residual or invalid app-managed files are `incomplete`, and neither state is ready.
 - A repeated request for the same model while `downloading` returns/reports the active operation and does not create another download.
 - A confirmed deletion removes only the selected app-managed model directory and its manifest; the Hub cache remains separate.
 - A confirmed cache cleanup removes cached Hub revisions/partials in the configured cache target; it does not remove app-managed installations or the broader `HF_HOME` root/token.

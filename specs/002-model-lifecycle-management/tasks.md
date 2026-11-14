@@ -53,6 +53,9 @@ description: "Task list for Model Lifecycle Management"
 
 **Purpose**: Keep local operating instructions accurate and verify the feature's quality gates.
 
+- [X] T012 Document model catalog configuration, storage paths, startup, lifecycle workflows, and automated checks in `specs/002-model-lifecycle-management/quickstart.md`.
+- [X] T013 Run the unit and smoke suites, Ruff check/format, and mypy after feature files and dependency updates are complete.
+
 
 ## Dependencies and Execution Order
 
@@ -105,3 +108,12 @@ Task: T007 Add model-management AppTest coverage in tests/smoke/test_model_manag
 - [X] T016 Add a deterministic failure-then-success download retry test that proves readiness is reached without damaging a prior complete installation per US1/AC4 and SC-004 (partial).
 - [X] T017 Include an allowlisted, non-sensitive model identifier in lifecycle log events per plan Observability and Documentation (partial).
 - [X] T018 Replace tab indentation in the quickstart YAML example and validate the fenced example with a YAML parser per T012 (partial).
+
+## Phase 6: Convergence
+
+- [X] T019 CRITICAL Add or extend `.github/workflows/ci.yml` to run Ruff, mypy, and the unit/smoke suite as required by Constitution II and IX (contradicts)
+- [X] T020 Represent incomplete local model artifacts separately from failed operations in availability status and add UI/state regression coverage per FR-006 and US1/AC4 (partial)
+
+## Phase 7: Convergence
+
+- [X] T021 Reconcile the missing T012/T013 dependency references and convergence phase ordering in `tasks.md` without renumbering tasks or changing existing completion markers per plan: feature validation and task dependency order (partial)

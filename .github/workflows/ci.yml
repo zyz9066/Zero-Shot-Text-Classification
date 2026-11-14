@@ -1,0 +1,40 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+
+      - name: Install locked dependencies
+        run: uv sync --python 3.13 --locked --all-groups
+
+      - name: Run unit and smoke tests
+        run: uv run --python 3.13 --locked pytest tests/unit tests/smoke
+
+      - name: Run Ruff lint
+        run: uv run --python 3.13 --locked ruff check .
+
+      - name: Check Ruff formatting
+        run: uv run --python 3.13 --locked ruff format --check .
+
+      - name: Run mypy
+        run: uv run --python 3.13 --locked mypy app

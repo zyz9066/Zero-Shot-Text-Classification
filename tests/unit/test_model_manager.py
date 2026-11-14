@@ -140,6 +140,19 @@ def test_download_promotes_manifest_and_reuses_ready_model(tmp_path: Path) -> No
     assert adapter.download_calls == 1
 
 
+def test_local_model_without_valid_manifest_reports_incomplete(tmp_path: Path) -> None:
+    manager = make_manager(tmp_path, FakeHubAdapter(make_snapshot(tmp_path)))
+    model_directory = manager.model_directory("org/model")
+    model_directory.mkdir(parents=True)
+    (model_directory / "partial.bin").write_bytes(b"partial")
+
+    status = manager.get_status("org/model")
+
+    assert status.availability == "incomplete"
+    assert status.safe_message is not None
+    assert "incomplete" in status.safe_message.lower()
+
+
 def test_same_model_in_flight_request_reuses_existing_operation(
     tmp_path: Path,
 ) -> None:
@@ -199,7 +212,7 @@ def test_failed_download_is_not_ready_and_preserves_existing_installation(
     failed = wait_for_state(manager, operation.operation_id, "failed")
 
     assert "private path" not in failed.safe_message
-    assert manager.get_status("org/model").availability == "failed"
+    assert manager.get_status("org/model").availability == "incomplete"
     assert (existing_directory / "existing.bin").read_text(
         encoding="utf-8"
     ) == "complete"
