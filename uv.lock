@@ -1827,6 +1827,7 @@ name = "zero-shot-text-classification"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
+    { name = "filelock" },
     { name = "huggingface-hub" },
     { name = "pyyaml" },
     { name = "streamlit" },
@@ -1842,6 +1843,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
+    { name = "filelock", specifier = ">=4.2.10" },
     { name = "huggingface-hub", specifier = ">=0.26.0" },
     { name = "pyyaml", specifier = ">=6.0.2" },
     { name = "streamlit", specifier = ">=1.39" },

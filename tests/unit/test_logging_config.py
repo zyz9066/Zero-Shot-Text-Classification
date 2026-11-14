@@ -49,3 +49,10 @@ def test_model_identifiers_are_logged_only_when_they_match_repository_syntax() -
     assert records[0]["model_id"] == "org/public-model"
     assert "model_id" not in records[1]
     assert "private-value" not in output.getvalue()
+
+
+def test_indeterminate_is_a_safe_recorded_outcome() -> None:
+    output = io.StringIO()
+    logger = configure_logging(logger_name="test.indeterminate_logging", stream=output)
+    log_event(logger, "label_configuration.write", outcome="indeterminate")
+    assert json.loads(output.getvalue())["outcome"] == "indeterminate"
