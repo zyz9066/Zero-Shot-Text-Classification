@@ -217,3 +217,9 @@ __marimo__/
 # Local model artifacts and Hugging Face caches
 models/
 .cache/huggingface/
+
+# Local candidate-label configuration and its sidecars
+/configs/labels.yaml
+/configs/labels.yaml.initialized
+/configs/labels.yaml.lock
+/configs/labels.yaml.*.tmp

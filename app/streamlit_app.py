@@ -34,5 +34,10 @@ def render_overview() -> None:
 
 overview_page = st.Page(render_overview, title="Overview", default=True)
 model_management_page = st.Page("pages/model_management.py", title="Model Management")
-navigation = st.navigation([overview_page, model_management_page])
+label_management_page = st.Page(
+    "pages/label_management.py", title="Candidate-Label Management"
+)
+navigation = st.navigation(
+    [overview_page, model_management_page, label_management_page]
+)
 navigation.run()
