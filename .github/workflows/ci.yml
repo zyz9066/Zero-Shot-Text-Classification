@@ -9,32 +9,93 @@ permissions:
 
 jobs:
   quality:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    strategy:
+      matrix:
+        python: ["3.11", "3.13"]
     steps:
       - name: Check out repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
         with:
-          python-version: "3.13"
+          python-version: ${{ matrix.python }}
 
       - name: Set up uv
-        uses: astral-sh/setup-uv@v6
+        uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6
         with:
           enable-cache: true
+          version: "0.13.5"
 
       - name: Install locked dependencies
-        run: uv sync --python 3.13 --locked --all-groups
+        run: uv sync --python ${{ matrix.python }} --locked --all-groups
 
-      - name: Run unit and smoke tests
-        run: uv run --python 3.13 --locked pytest tests/unit tests/smoke
+      - name: Run unit, smoke and cooperating-process tests
+        run: >-
+          uv run --python ${{ matrix.python }} --locked pytest
+          tests/unit tests/smoke
+          tests/integration/test_classification_concurrency.py
+          tests/integration/test_label_concurrency.py
 
       - name: Run Ruff lint
-        run: uv run --python 3.13 --locked ruff check .
+        run: uv run --python ${{ matrix.python }} --locked ruff check .
 
       - name: Check Ruff formatting
-        run: uv run --python 3.13 --locked ruff format --check .
+        run: uv run --python ${{ matrix.python }} --locked ruff format --check .
 
       - name: Run mypy
-        run: uv run --python 3.13 --locked mypy app
+        run: uv run --python ${{ matrix.python }} --locked mypy app scripts/check_deployment.py
+
+  packaging:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: "3.13"
+      - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6
+        with:
+          version: "0.13.5"
+          enable-cache: true
+      - run: uv sync --locked --all-groups
+      - name: Validate images, context and app-only durability
+        env:
+          RUN_DEPLOYMENT_TESTS: "1"
+        run: >-
+          uv run --locked pytest tests/integration/test_deployment.py
+          -k "not isolated_prediction_storage" -q -rs
+
+  prediction-storage:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: "3.13"
+      - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6
+        with:
+          version: "0.13.5"
+          enable-cache: true
+      - run: uv sync --locked --all-groups
+      - name: Run eligible isolated storage validation
+        env:
+          AISTOR_TEST_LICENSE: ${{ secrets.AISTOR_TEST_LICENSE }}
+        shell: bash
+        run: |
+          set -eu
+          export RUN_DEPLOYMENT_TESTS=1
+          echo "Local alternative: set RUN_DEPLOYMENT_TESTS=1 and MINIO_LICENSE_FILE; uv run --locked pytest tests/integration/test_deployment.py -k isolated_prediction_storage -q -rs"
+          if [ -z "${AISTOR_TEST_LICENSE:-}" ]; then
+            unset MINIO_LICENSE_FILE
+            echo "SKIPPED: permitted AIStor test license unavailable (including fork PRs)."
+            echo "Storage integration: SKIPPED, no service-backed coverage." >> "$GITHUB_STEP_SUMMARY"
+          else
+            umask 077
+            export MINIO_LICENSE_FILE="$RUNNER_TEMP/zeroshot-aistor-test.license"
+            printf '%s' "$AISTOR_TEST_LICENSE" > "$MINIO_LICENSE_FILE"
+            trap 'rm -f "$MINIO_LICENSE_FILE"' EXIT
+          fi
+          uv run --locked pytest tests/integration/test_deployment.py -k isolated_prediction_storage -q -rs

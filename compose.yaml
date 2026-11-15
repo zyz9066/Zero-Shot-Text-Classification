@@ -1,0 +1,35 @@
+services:
+  app:
+    image: ${COMPOSE_PROJECT_NAME:-zeroshot-local}-app:local
+    platform: linux/amd64
+    build:
+      context: .
+      target: runtime
+    ports:
+      - "127.0.0.1:8501:8501"
+    environment:
+      APP_CONFIG_FILE:
+      APP_VERSION:
+      HF_TOKEN:
+      MINIO_ACCESS_KEY:
+      MINIO_SECRET_KEY:
+      MINIO_BUCKET:
+      MINIO_ENDPOINT: ${MINIO_ENDPOINT-minio:9000}
+      MINIO_SECURE: ${MINIO_SECURE-false}
+      MODEL_DIR: /runtime/models
+      HF_HOME: /runtime/hf-home
+      TRANSFORMERS_CACHE: /runtime/hub-cache
+      HF_HUB_CACHE: /runtime/hf-home/hub
+      XDG_CACHE_HOME: /runtime/xdg-cache
+      LABEL_CONFIG_FILE: /runtime/labels/catalog.yaml
+    volumes:
+      - app-runtime:/runtime
+    healthcheck:
+      test: ["CMD", "python", "scripts/check_deployment.py", "health", "--component", "app"]
+      interval: 10s
+      timeout: 8s
+      start_period: 60s
+      retries: 3
+
+volumes:
+  app-runtime:

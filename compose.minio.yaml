@@ -1,0 +1,31 @@
+services:
+  minio:
+    image: quay.io/minio/aistor/minio:latest@sha256:107cf2014a9583c74c11e3cdbd6903d89c2244355886b89ce532f4ecae9c23f3
+    platform: linux/amd64
+    command: ["minio", "server", "/mnt/data", "--license", "/minio.license", "--console-address", ":9001"]
+    ports:
+      - "127.0.0.1:9000:9000"
+      - "127.0.0.1:9001:9001"
+    environment:
+      MINIO_ROOT_USER_FILE: /run/secrets/minio-root-user
+      MINIO_ROOT_PASSWORD_FILE: /run/secrets/minio-root-password
+    secrets:
+      - minio-root-user
+      - minio-root-password
+    volumes:
+      - minio-data:/mnt/data
+      - type: bind
+        source: ${MINIO_LICENSE_FILE:?Supply external MINIO_LICENSE_FILE}
+        target: /minio.license
+        read_only: true
+        bind:
+          create_host_path: false
+
+secrets:
+  minio-root-user:
+    file: ${MINIO_ROOT_USER_FILE:?Supply external MINIO_ROOT_USER_FILE}
+  minio-root-password:
+    file: ${MINIO_ROOT_PASSWORD_FILE:?Supply external MINIO_ROOT_PASSWORD_FILE}
+
+volumes:
+  minio-data:
