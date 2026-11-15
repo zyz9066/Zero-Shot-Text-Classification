@@ -31,6 +31,31 @@ def test_lifecycle_and_stale_changes(tmp_path: Path) -> None:
         LabelManager(path).list_sets()
 
 
+def test_finalization_uses_captured_identity_after_valid_edit(
+    tmp_path: Path,
+) -> None:
+    manager = LabelManager(tmp_path / "labels.yaml")
+    original = manager.create("Topics", ["Sports", "Tech"])
+    edited = manager.update(original.id, original.revision, "Topics", ["News", "Tech"])
+
+    with manager.finalize_set(original.id) as current:
+        assert current == edited
+        assert current.revision != original.revision
+
+
+def test_finalization_rejects_removed_set(tmp_path: Path) -> None:
+    manager = LabelManager(tmp_path / "labels.yaml")
+    saved = manager.create("Topics", ["Sports", "Tech"])
+    manager.remove(saved.id, saved.revision, confirmed=True)
+
+    with pytest.raises(LabelManagerError) as error:
+        with manager.finalize_set(saved.id):
+            pytest.fail("Removed label set must not be finalized")
+
+    assert error.value.kind == "unavailable"
+    assert "no longer available" in str(error.value)
+
+
 def test_invalid_and_duplicate_changes_preserve_saved_data(tmp_path: Path) -> None:
     manager = LabelManager(tmp_path / "labels.yaml")
     saved = manager.create("Topics", ["Sports", "Tech"])

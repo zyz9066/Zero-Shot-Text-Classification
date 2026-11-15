@@ -1,6 +1,8 @@
 import logging
 import os
 import tempfile
+from collections.abc import Iterator
+from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
 from uuid import uuid4
@@ -244,6 +246,43 @@ class LabelManager:
             raise LabelManagerError(
                 "Label configuration is unavailable. Check storage access.", "recovery"
             ) from None
+
+    @contextmanager
+    def finalize_set(self, identifier: str) -> Iterator[LabelSet]:
+        lock = self._lock()
+        try:
+            lock.acquire()
+        except Timeout:
+            raise LabelManagerError(
+                "Label configuration is busy. Wait and retry.", "lock"
+            ) from None
+        except OSError:
+            raise LabelManagerError(
+                "Label configuration is unavailable. Check storage access.",
+                "recovery",
+            ) from None
+
+        try:
+            try:
+                snapshot = self._read()
+            except OSError:
+                raise LabelManagerError(
+                    "Label configuration is unavailable. Repair or recover it before "
+                    "retrying.",
+                    "recovery",
+                ) from None
+            selected = next(
+                (item for item in snapshot.sets if item.id == identifier), None
+            )
+            if selected is None:
+                log_event(logger, "label_configuration.unavailable", outcome="failure")
+                raise LabelManagerError(
+                    "The selected label set is no longer available. Select it again.",
+                    "unavailable",
+                )
+            yield selected
+        finally:
+            lock.release()
 
     def create(self, name: str, labels: list[str]) -> LabelSet:
         state = _CommitState()

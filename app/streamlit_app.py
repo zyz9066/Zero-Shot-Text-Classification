@@ -37,7 +37,8 @@ model_management_page = st.Page("pages/model_management.py", title="Model Manage
 label_management_page = st.Page(
     "pages/label_management.py", title="Candidate-Label Management"
 )
+classification_page = st.Page("pages/classification.py", title="Classification")
 navigation = st.navigation(
-    [overview_page, model_management_page, label_management_page]
+    [overview_page, model_management_page, label_management_page, classification_page]
 )
 navigation.run()

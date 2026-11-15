@@ -1,28 +1,10 @@
 import streamlit as st
 
-from app.config.loader import load_model_settings
-from app.config.model_catalog import (
-    DEFAULT_MODEL_CATALOG_PATH,
-    ModelCatalogError,
-    load_model_catalog,
-)
+from app.config.model_catalog import ModelCatalogError
 from app.config.settings import ConfigurationError
-from app.services.huggingface_hub_adapter import HubAdapterError, HuggingFaceHubAdapter
+from app.services.huggingface_hub_adapter import HubAdapterError
 from app.services.model_manager import ModelManager
-
-
-@st.cache_resource(show_spinner=False)
-def _get_model_manager() -> ModelManager:
-    settings = load_model_settings()
-    catalog = load_model_catalog(DEFAULT_MODEL_CATALOG_PATH)
-    adapter = HuggingFaceHubAdapter(
-        settings.transformers_cache, token_provider=_resolve_hf_token
-    )
-    return ModelManager(catalog, settings, adapter)
-
-
-def _resolve_hf_token() -> str | None:
-    return load_model_settings().hf_token
+from app.services.model_provider import get_model_manager
 
 
 @st.fragment(run_every="1s")
@@ -56,7 +38,7 @@ def render_model_management() -> None:
     )
 
     try:
-        manager = _get_model_manager()
+        manager = get_model_manager()
     except (ConfigurationError, ModelCatalogError) as error:
         st.error(str(error))
         return
