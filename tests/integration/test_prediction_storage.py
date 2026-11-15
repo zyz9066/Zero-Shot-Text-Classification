@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import os
 from dataclasses import replace
+from io import BytesIO
 from uuid import uuid4
 
 import pytest
@@ -36,11 +37,22 @@ def test_minio_prediction_write_and_read() -> None:
         "application_version": "0.1.0",
     }
     key = f"predictions/{request_id}.json"
+    sentinel_key = f"validation-sentinels/{uuid4()}.txt"
+    sentinel_content = b"non-sensitive cleanup sentinel"
     written = False
+    sentinel_written = False
 
     try:
         PredictionStore(settings, client=client).save(record)
         written = True
+        client.put_object(
+            test_bucket,
+            sentinel_key,
+            BytesIO(sentinel_content),
+            len(sentinel_content),
+            content_type="text/plain",
+        )
+        sentinel_written = True
         response = client.get_object(test_bucket, key)
         try:
             assert json.loads(response.read()) == record
@@ -48,5 +60,16 @@ def test_minio_prediction_write_and_read() -> None:
             response.close()
             response.release_conn()
     finally:
-        if written:
-            client.remove_object(test_bucket, key)
+        try:
+            if written:
+                client.remove_object(test_bucket, key)
+            if sentinel_written:
+                response = client.get_object(test_bucket, sentinel_key)
+                try:
+                    assert response.read(len(sentinel_content) + 1) == sentinel_content
+                finally:
+                    response.close()
+                    response.release_conn()
+        finally:
+            if sentinel_written:
+                client.remove_object(test_bucket, sentinel_key)

@@ -223,3 +223,14 @@ models/
 /configs/labels.yaml.initialized
 /configs/labels.yaml.lock
 /configs/labels.yaml.*.tmp
+
+# External deployment material and disposable validation/backup data
+*.license
+*.license.*
+/secrets/
+/runtime/
+/backups/
+/deployment-test-runtime/
+*.use.lock
+.DS_Store
+Thumbs.db
