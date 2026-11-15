@@ -5,11 +5,14 @@ import re
 import shutil
 import threading
 import uuid
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
+from contextlib import contextmanager
 from dataclasses import dataclass, replace
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Literal, Protocol
+
+from filelock import FileLock, Timeout
 
 from app.config.model_catalog import ConfiguredModel
 from app.config.settings import ModelRuntimeSettings
@@ -107,10 +110,13 @@ class ModelManager:
         catalog: tuple[ConfiguredModel, ...],
         settings: ModelRuntimeSettings,
         hub_adapter: HubAdapter,
+        *,
+        use_timeout: float = 10,
     ) -> None:
         self._catalog = {model.model_id: model for model in catalog}
         self.settings = replace(settings, hf_token=None)
         self._hub_adapter = hub_adapter
+        self._use_timeout = use_timeout
         self._lock = threading.RLock()
         self._operations: dict[str, _OperationRecord] = {}
         self._active_downloads: dict[str, str] = {}
@@ -123,6 +129,36 @@ class ModelManager:
     def get_status(self, model_id: str) -> ModelStatus:
         with self._lock:
             return self._status_for(self._get_model(model_id))
+
+    @contextmanager
+    def model_use_guard(self, model_id: str) -> Iterator[ModelStatus]:
+        model = self._get_model(model_id)
+        try:
+            model_path = self.model_directory(model_id)
+            lock_path = (
+                self.settings.model_dir.resolve().parent
+                / f".{model_path.name}.use.lock"
+            )
+            guard = FileLock(
+                lock_path,
+                timeout=self._use_timeout,
+                preserve_lock_file=True,
+                fallback_to_soft=False,
+            )
+            guard.acquire()
+        except Timeout:
+            raise ModelManagerError(
+                "The selected model is busy. Wait and retry."
+            ) from None
+        except (OSError, RuntimeError, ValueError):
+            raise ModelManagerError(
+                "Model coordination is unavailable. Check the local model storage."
+            ) from None
+
+        try:
+            yield self.get_status(model.model_id)
+        finally:
+            guard.release()
 
     def get_operation(self, operation_id: str) -> ModelOperation:
         with self._lock:
@@ -182,46 +218,61 @@ class ModelManager:
                 safe_message="Model deletion was cancelled",
             )
 
-        with self._lock:
-            active_operation_id = self._active_downloads.get(model_id)
-            if active_operation_id is not None:
-                active = self._operations[active_operation_id]
-                if active.state == "running":
-                    return self._new_operation(
+        try:
+            with self.model_use_guard(model_id):
+                with self._lock:
+                    active_operation_id = self._active_downloads.get(model_id)
+                    if active_operation_id is not None:
+                        active = self._operations[active_operation_id]
+                        if active.state == "running":
+                            return self._new_operation(
+                                "delete",
+                                model,
+                                state="failed",
+                                progress=None,
+                                safe_message=(
+                                    "Wait for the model download to finish before "
+                                    "deleting it"
+                                ),
+                            )
+
+                    operation = self._new_operation(
                         "delete",
                         model,
-                        state="failed",
+                        state="running",
                         progress=None,
-                        safe_message=(
-                            "Wait for the model download to finish before deleting it"
-                        ),
+                        safe_message="Model deletion started",
                     )
-
-            operation = self._new_operation(
+                    try:
+                        model_path = self._checked_model_path(model_id)
+                        if model_path.is_dir():
+                            shutil.rmtree(model_path)
+                        elif model_path.exists() or model_path.is_symlink():
+                            model_path.unlink()
+                    except Exception:
+                        return self._finish_operation(
+                            operation.operation_id,
+                            state="failed",
+                            progress=None,
+                            safe_message=(
+                                "Unable to delete the selected app-managed model"
+                            ),
+                        )
+                    return self._finish_operation(
+                        operation.operation_id,
+                        state="succeeded",
+                        progress=1.0,
+                        safe_message="The selected app-managed model was deleted",
+                    )
+        except ModelManagerError:
+            return self._new_operation(
                 "delete",
                 model,
-                state="running",
+                state="failed",
                 progress=None,
-                safe_message="Model deletion started",
-            )
-            try:
-                model_path = self._checked_model_path(model_id)
-                if model_path.is_dir():
-                    shutil.rmtree(model_path)
-                elif model_path.exists() or model_path.is_symlink():
-                    model_path.unlink()
-            except Exception:
-                return self._finish_operation(
-                    operation.operation_id,
-                    state="failed",
-                    progress=None,
-                    safe_message="Unable to delete the selected app-managed model",
-                )
-            return self._finish_operation(
-                operation.operation_id,
-                state="succeeded",
-                progress=1.0,
-                safe_message="The selected app-managed model was deleted",
+                safe_message=(
+                    "The selected model is busy or unavailable. Wait and retry."
+                ),
             )
 
     def preview_cache_cleanup(self) -> CacheCleanupPreview:
@@ -315,7 +366,8 @@ class ModelManager:
                 progress=0.9,
                 safe_message="App-managed copy verified; finalizing installation",
             )
-            self._promote_stage(stage_path, model_path)
+            with self.model_use_guard(model.model_id):
+                self._promote_stage(stage_path, model_path)
             stage_path = None
             self._finish_operation(
                 operation_id,

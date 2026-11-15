@@ -4,8 +4,20 @@ import re
 import sys
 from typing import TextIO
 
-_ALLOWED_FIELDS = {"setting_name", "source_kind", "outcome", "model_id"}
+_ALLOWED_FIELDS = {
+    "setting_name",
+    "source_kind",
+    "outcome",
+    "model_id",
+    "request_id",
+    "label_set_id",
+    "bucket",
+}
 _SAFE_SETTING_NAME = re.compile(r"[A-Z][A-Z0-9_]*\Z")
+_SAFE_UUID = re.compile(
+    r"[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\Z"
+)
+_SAFE_BUCKET = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{1,61}[A-Za-z0-9]\Z")
 _SAFE_SOURCE_KINDS = {"environment", "yaml", "default"}
 _SAFE_OUTCOMES = {
     "success",
@@ -57,6 +69,10 @@ def log_event(logger: logging.Logger, event_name: str, **fields: object) -> None
             and ".." not in value
             and _SAFE_MODEL_ID.fullmatch(value)
         ):
+            record[key] = value
+        elif key in {"request_id", "label_set_id"} and _SAFE_UUID.fullmatch(value):
+            record[key] = value
+        elif key == "bucket" and _SAFE_BUCKET.fullmatch(value):
             record[key] = value
 
     logger.info(json.dumps(record, sort_keys=True))

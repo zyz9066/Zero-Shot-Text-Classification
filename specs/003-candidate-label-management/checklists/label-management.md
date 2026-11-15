@@ -79,3 +79,18 @@
 - `/speckit-implement` reads checklist checkbox state as a gate and must not modify markers.
 - `checklists/requirements.md` has a separate built-in lifecycle maintained by `/speckit-specify` and `/speckit-clarify`.
 - Add comments or findings inline; items are numbered sequentially for reference.
+
+## Additional Requirement Clarity
+
+- [ ] CHK041 Are allowed name and label content constraints—including embedded newlines, encoding, and any size limits—specified consistently or explicitly left unrestricted? [Clarity, Spec §FR-002, §FR-003, §FR-014, Data Model §Candidate label]
+- [ ] CHK042 Is the target of an edit or removal unambiguous if the selected set changes after its draft or confirmation is opened? [Clarity, Spec §FR-007, §FR-008, §FR-015, Acceptance Scenarios 5-6, 13]
+
+## Additional Scenario and Recovery Coverage
+
+- [ ] CHK043 Are safe repair steps specified for each blocked configuration state, including invalid or unreadable catalogs, missing catalogs after initialization, and interrupted initialization? [Completeness, Spec §FR-009, §FR-010, §FR-016]
+- [ ] CHK044 Does the first-use warning clearly explain that simultaneous loss of the catalog and initialization evidence cannot be distinguished from genuine first use? [Clarity, Spec §FR-016, Edge Cases]
+
+## Additional Scope and Configuration Clarity
+
+- [ ] CHK045 Are requirements explicit that label configuration is non-secret, separate from prediction outputs, and does not require or request credentials? [Consistency, Spec §FR-011, §FR-012, Out of Scope, Constitution §6-7]
+- [ ] CHK046 Is it clear that administrators may define their own labels without a required example label or default set? [Completeness, Spec §FR-014]

@@ -7,7 +7,10 @@ dependencies = [
     "PyYAML>=6.0.2",
     "filelock>=4.2.10",
     "huggingface_hub>=0.26.0",
+    "minio>=7.2,<8",
     "streamlit>=1.39",
+    "torch>=2.6,<3",
+    "transformers>=5.23,<6",
 ]
 
 [build-system]
@@ -25,6 +28,7 @@ dev = [
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["."]
+addopts = ["--import-mode=importlib"]
 
 [tool.ruff]
 line-length = 88

@@ -5,6 +5,8 @@ import time
 from collections.abc import Callable
 from pathlib import Path
 
+import pytest
+
 import app.services.model_manager as model_manager_module
 from app.config.model_catalog import ConfiguredModel
 from app.config.settings import ModelRuntimeSettings
@@ -56,6 +58,8 @@ def make_manager(
     tmp_path: Path,
     adapter: FakeHubAdapter,
     model: ConfiguredModel | None = None,
+    *,
+    use_timeout: float = 10,
 ) -> ModelManager:
     configured_model = model or ConfiguredModel(
         "org/model", "Test Model", "zero-shot-classification"
@@ -68,6 +72,7 @@ def make_manager(
             transformers_cache=tmp_path / "hub-cache",
         ),
         adapter,
+        use_timeout=use_timeout,
     )
 
 
@@ -254,6 +259,38 @@ def test_deletion_requires_confirmation_and_is_limited_to_selected_model(
     assert deleted.state == "succeeded"
     assert not model_directory.exists()
     assert unrelated.read_text(encoding="utf-8") == "keep"
+
+
+def test_model_use_guard_blocks_deletion_until_model_is_released(
+    tmp_path: Path,
+) -> None:
+    manager = make_manager(
+        tmp_path, FakeHubAdapter(make_snapshot(tmp_path)), use_timeout=0.05
+    )
+    model_directory = manager.model_directory("org/model")
+    model_directory.mkdir(parents=True)
+    weights = model_directory / "weights.bin"
+    weights.write_bytes(b"weights")
+
+    with manager.model_use_guard("org/model") as status:
+        assert status.availability == "incomplete"
+        deletion = manager.delete_model("org/model", confirmed=True)
+        assert deletion.state == "failed"
+        assert "busy" in deletion.safe_message.lower()
+        assert weights.exists()
+
+    assert manager.delete_model("org/model", confirmed=True).state == "succeeded"
+
+
+def test_model_use_guard_releases_after_failure(tmp_path: Path) -> None:
+    manager = make_manager(tmp_path, FakeHubAdapter(make_snapshot(tmp_path)))
+
+    with pytest.raises(RuntimeError, match="inference failed"):
+        with manager.model_use_guard("org/model"):
+            raise RuntimeError("inference failed")
+
+    with manager.model_use_guard("org/model") as status:
+        assert status.availability == "missing"
 
 
 def test_cache_cleanup_is_separate_and_requires_confirmation(
