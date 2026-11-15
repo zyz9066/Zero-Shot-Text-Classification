@@ -11,8 +11,9 @@ Licensed full-model/browser classification, cold offline ready-model reuse and
 normal loopback deployment lifecycle checks also passed. A separate fresh-context
 repository-only reviewer walkthrough passed, including one automatically saved
 classification and private matching-record inspection. Final local quality,
-container/storage gates and requirement reconciliation passed; all 49 tasks
-are complete. Hosted CI has not been run.
+container/storage gates and requirement reconciliation passed; all 49 original
+tasks are complete. The subsequent local-launch follow-up has separate
+validation evidence in the quickstart. Hosted CI has not been run.
 
 **Re-plan**: U1 (test host-port isolation) and U2 (test-source filtering) were
 resolved, the tasks subsequently regenerated, and read-only analysis completed
@@ -23,6 +24,18 @@ before implementation.
 Package the existing application for Linux amd64 CPU execution, add an independently startable application Compose file and optional licensed AIStor overlay, extend existing CI, and expand the README. Preserve features 001-004 without new management or inference workflows. Persist one application runtime parent covering model locks, model provenance, caches, and label sidecars; use a separate MinIO data volume.
 
 See [research.md](research.md), [data-model.md](data-model.md), [deployment contract](contracts/deployment.md), and [quickstart.md](quickstart.md).
+
+### Local launch usability follow-up
+
+Use a small Windows PowerShell wrapper around the existing preflight and Compose
+commands. On first full start, gather external license/root-file paths and an
+explicit bucket choice, validate with the existing preflight, and write only
+those non-secret settings to a new ignored `.env`; never replace an existing
+file. Prompt for app credentials for each full start and restore the caller's
+environment afterward. Keep stop non-destructive, retain app-only startup, and
+provide the storage write probe as an explicit `check` action rather than claiming
+that a running container proves usable storage. Preserve the existing manual
+and cross-platform instructions.
 
 ## Technical Context
 

@@ -25,7 +25,7 @@ description: "Executable tasks for feature 005 deployment, CI, and developer doc
 
 ## Phase 1: Setup (Shared Infrastructure)
 
-**Implementation status**: 49/49 tasks completed. T017/T038/T041/T045 have
+**Original implementation status**: 49/49 original tasks completed. T017/T038/T041/T045 have
 actual full-model/browser classification, cold offline ready-model reuse and
 exact persistent-state comparison through normal loopback deployment lifecycle
 commands. The supplied license and generated temporary credentials were used
@@ -412,3 +412,8 @@ This supersedes historical completion counts: **49 checked, zero pending**.
 Hosted CI, accessibility/participants, physical MinIO restore and real-model
 transfer remain explicitly unrun, not inferred successes. No application
 contract change, commit, push or unrelated destructive cleanup occurred.
+
+## Phase 12: Local launch usability
+
+- [X] T050 Add a Windows PowerShell first-run/full-start, stop, status, explicit readiness check, and app-only launcher that reuses `.env`, preflight, and Compose, preserves existing configuration, prompts for app credentials without saving them, and retains volumes.
+- [X] T051 Add launcher regression tests for setup, existing configuration, failure handling, non-destructive lifecycle, app-only startup, and real dotenv/preflight compatibility; update the README and feature guidance with the concise workflow and honest readiness limits.

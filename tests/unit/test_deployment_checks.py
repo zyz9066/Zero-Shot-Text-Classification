@@ -21,6 +21,221 @@ from app.config.settings import MinIOServiceSettings
 from scripts import check_deployment as checks
 
 
+@pytest.fixture
+def local_launcher(tmp_path: Path) -> tuple[Path, Path, str]:
+    if os.name != "nt":
+        pytest.skip("local launcher targets Windows")
+    shell = shutil.which("powershell")
+    if not shell:
+        pytest.skip("PowerShell is required to exercise the local launcher")
+    root = tmp_path / "project"
+    (root / "scripts").mkdir(parents=True)
+    shutil.copyfile(
+        Path(__file__).resolve().parents[2] / "scripts" / "local.ps1",
+        root / "scripts" / "local.ps1",
+    )
+    harness = tmp_path / "harness.ps1"
+    harness.write_text(
+        """
+$global:answers = [System.Collections.Generic.Queue[string]]::new()
+foreach ($line in [IO.File]::ReadAllLines($env:TEST_ANSWERS)) {
+    $global:answers.Enqueue($line)
+}
+function Read-Host { param($Prompt) return $global:answers.Dequeue() }
+function Get-Credential {
+    param($Message)
+    if ($env:TEST_CANCEL_CREDENTIAL -eq '1') { return $null }
+    $credential = [PSCustomObject]@{ UserName = $env:TEST_USER }
+    $credential | Add-Member -MemberType ScriptMethod -Name GetNetworkCredential `
+        -Value { return [PSCustomObject]@{ Password = $env:TEST_SECRET } }
+    return $credential
+}
+function uv {
+    Add-Content -LiteralPath $env:TEST_LOG -Value ('uv ' + ($args -join ' '))
+    $global:LASTEXITCODE = if ($env:TEST_UV_FAIL -eq '1') { 1 } else { 0 }
+}
+function docker {
+    Add-Content -LiteralPath $env:TEST_LOG -Value ('docker ' + ($args -join ' '))
+    if (($args -contains 'up') -and ($args -notcontains 'app')) {
+        if ($env:MINIO_ACCESS_KEY -ne $env:TEST_USER -or
+            $env:MINIO_SECRET_KEY -ne $env:TEST_SECRET) {
+            throw 'App credentials were not passed to Compose.'
+        }
+    }
+    $global:LASTEXITCODE = if ($env:TEST_DOCKER_FAIL -eq '1') { 1 } else { 0 }
+}
+try {
+    & (Join-Path $env:TEST_ROOT 'scripts/local.ps1') $env:TEST_ACTION
+    if ($env:MINIO_ACCESS_KEY -ne 'original-access' -or
+        $env:MINIO_SECRET_KEY -ne 'original-secret') {
+        throw 'Caller environment was not restored.'
+    }
+} catch {
+    Write-Error $_
+    exit 1
+}
+""",
+        encoding="utf-8",
+    )
+    return root, harness, shell
+
+
+def run_local_launcher(
+    launcher: tuple[Path, Path, str],
+    action: str,
+    answers: list[str] | None = None,
+    **overrides: str,
+) -> subprocess.CompletedProcess[str]:
+    root, harness, shell = launcher
+    answers_file = root.parent / "answers.txt"
+    answers_file.write_text("\n".join(answers or []) + "\n", encoding="utf-8")
+    env = os.environ.copy()
+    for key in (
+        "MINIO_LICENSE_FILE",
+        "MINIO_ROOT_USER_FILE",
+        "MINIO_ROOT_PASSWORD_FILE",
+        "MINIO_BUCKET",
+    ):
+        env.pop(key, None)
+    env.update(
+        TEST_ROOT=str(root),
+        TEST_ACTION=action,
+        TEST_ANSWERS=str(answers_file),
+        TEST_LOG=str(root.parent / "commands.txt"),
+        TEST_USER="test-access-" + uuid4().hex,
+        TEST_SECRET="test-secret-" + uuid4().hex,
+        MINIO_ACCESS_KEY="original-access",
+        MINIO_SECRET_KEY="original-secret",
+        **overrides,
+    )
+    return subprocess.run(
+        [shell, "-NoProfile", "-NonInteractive", "-File", str(harness)],
+        env=env,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+
+def test_local_launcher_setup_start_and_non_destructive_lifecycle(
+    local_launcher: tuple[Path, Path, str],
+) -> None:
+    root, _, _ = local_launcher
+    paths = [str(root.parent / name) for name in ("license", "user", "password")]
+    result = run_local_launcher(
+        local_launcher, "start", [*paths, "zeroshot-learning-test"]
+    )
+    assert result.returncode == 0, result.stderr
+    config = (root / ".env").read_text(encoding="utf-8")
+    assert all(path in config for path in paths)
+    assert "MINIO_BUCKET='zeroshot-learning-test'" in config
+    assert "MINIO_ACCESS_KEY" not in config and "MINIO_SECRET_KEY" not in config
+    assert "test-secret-" not in result.stdout + result.stderr + config
+    commands = (root.parent / "commands.txt").read_text(encoding="utf-8")
+    assert "config --quiet" in commands and "up -d --build" in commands
+    assert "readiness is not yet verified" in result.stdout
+
+    for action in ("stop", "status", "check"):
+        result = run_local_launcher(local_launcher, action)
+        assert result.returncode == 0, result.stderr
+    commands = (root.parent / "commands.txt").read_text(encoding="utf-8")
+    assert " stop" in commands and " ps" in commands
+    assert "storage --write-probe" in commands
+    assert "--volumes" not in commands
+    assert (root / ".env").read_text(encoding="utf-8") == config
+
+
+def test_local_launcher_preserves_existing_config_and_stops_on_failures(
+    local_launcher: tuple[Path, Path, str],
+) -> None:
+    root, _, _ = local_launcher
+    config = "MINIO_BUCKET='existing-bucket'\n"
+    (root / ".env").write_text(config, encoding="utf-8")
+    result = run_local_launcher(local_launcher, "start", TEST_UV_FAIL="1")
+    assert result.returncode != 0
+    assert (root / ".env").read_text(encoding="utf-8") == config
+    assert "docker " not in (root.parent / "commands.txt").read_text(encoding="utf-8")
+    result = run_local_launcher(local_launcher, "start", TEST_CANCEL_CREDENTIAL="1")
+    assert result.returncode != 0
+    assert (root / ".env").read_text(encoding="utf-8") == config
+    assert "docker " not in (root.parent / "commands.txt").read_text(encoding="utf-8")
+    result = run_local_launcher(local_launcher, "start", TEST_DOCKER_FAIL="1")
+    assert result.returncode != 0
+    assert "Docker Compose failed" in result.stderr
+    assert "test-secret-" not in result.stdout + result.stderr
+    assert (root / ".env").read_text(encoding="utf-8") == config
+
+
+def test_local_launcher_failed_setup_and_app_only(
+    local_launcher: tuple[Path, Path, str],
+) -> None:
+    root, _, _ = local_launcher
+    paths = [str(root.parent / name) for name in ("license", "user", "password")]
+    result = run_local_launcher(local_launcher, "start", paths, TEST_UV_FAIL="1")
+    assert result.returncode != 0
+    assert not (root / ".env").exists()
+    result = run_local_launcher(local_launcher, "start", ["C:relative", *paths[1:], ""])
+    assert result.returncode != 0
+    assert "absolute paths" in result.stderr
+    assert not (root / ".env").exists()
+    result = run_local_launcher(local_launcher, "app")
+    assert result.returncode == 0, result.stderr
+    assert not (root / ".env").exists()
+    commands = (root.parent / "commands.txt").read_text(encoding="utf-8")
+    assert "up -d --build app" in commands
+    assert "compose.minio.yaml" not in commands
+
+
+def test_local_launcher_config_is_accepted_by_real_preflight(
+    local_launcher: tuple[Path, Path, str],
+) -> None:
+    uv = shutil.which("uv")
+    if not uv:
+        pytest.skip("uv is required to exercise dotenv preflight")
+    root, _, _ = local_launcher
+    files = [root.parent / f"local $ {name}" for name in ("license", "user", "secret")]
+    for path in files:
+        path.write_text("test-value", encoding="utf-8")
+    result = run_local_launcher(
+        local_launcher, "start", [*(str(path) for path in files), ""]
+    )
+    assert result.returncode == 0, result.stderr
+    env = os.environ.copy()
+    for name in (
+        "MINIO_LICENSE_FILE",
+        "MINIO_ROOT_USER_FILE",
+        "MINIO_ROOT_PASSWORD_FILE",
+    ):
+        env.pop(name, None)
+    result = subprocess.run(
+        [
+            uv,
+            "run",
+            "--no-sync",
+            "--project",
+            str(Path(__file__).resolve().parents[2]),
+            "--env-file",
+            ".env",
+            "--locked",
+            "python",
+            str(
+                Path(__file__).resolve().parents[2] / "scripts" / "check_deployment.py"
+            ),
+            "preflight",
+        ],
+        cwd=root,
+        env=env,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert result.returncode == 0, result.stderr
+    assert json.loads(result.stdout)["outcome"] == "ready"
+    assert "MINIO_BUCKET='zeroshot_learning_output'" in (root / ".env").read_text(
+        encoding="utf-8"
+    )
+
+
 class Client:
     def __init__(self) -> None:
         self.content = b""

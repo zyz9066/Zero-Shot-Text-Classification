@@ -18,7 +18,59 @@ application**, not authenticated public hosting or a production security setup.
 - For saved classification: a supported MinIO service, authorized app
   credentials, and any required active license.
 
-## Native Windows quickstart
+## Quickstart: full local application
+
+On Windows, start Docker Desktop with Linux containers. Obtain an authorized
+[AIStor license](https://docs.min.io/aistor/operations/licenses/) and create
+external root-user and root-password files as described in
+[License and server credentials](#license-and-server-credentials). You also
+need authorized application credentials; for trusted local development only,
+these may be the corresponding root credentials.
+
+From PowerShell in the repository root, run:
+
+```powershell
+.\scripts\local.ps1
+```
+
+On first use, the launcher asks for the three external file paths and a bucket
+name, validates the files, and saves only those paths and the bucket in the
+ignored `.env` file. The required default bucket contains underscores and may
+be rejected by MinIO: explicitly enter a valid override such as
+`zeroshot-learning-test` when needed. The launcher asks for application
+credentials on every full start; it does not save their values. If `.env`
+already exists, it is used unchanged, and existing process environment variables
+take precedence. Correct an existing `.env` using the manual instructions below.
+
+Open <http://localhost:8501>, then [prepare a model and labels](#prepare-a-model-labels-and-classification).
+Container startup does **not** prove that storage can accept writes. After the
+services are running, check using:
+
+```powershell
+.\scripts\local.ps1 check
+```
+
+This explicitly writes, reads, and removes one temporary probe object; the
+authorized app identity needs the corresponding permissions. If the outcome is
+uncertain, follow its inspection guidance instead of retrying blindly.
+
+After safely finishing or deferring in-flight work, use:
+
+```powershell
+.\scripts\local.ps1 status
+.\scripts\local.ps1 stop
+```
+
+The stop command retains named volumes. Run `.\scripts\local.ps1` again to
+start; enter the app credentials again. To explore the shell without MinIO,
+use `.\scripts\local.ps1 app`; stop that app-only deployment with
+`docker compose -p zeroshot-local -f compose.yaml stop`.
+The launcher is a PowerShell convenience for trusted local use; the manual
+commands below remain available. Paths must be absolute and cannot contain
+single quotes or newlines. If PowerShell blocks scripts, consult your
+organization's execution policy rather than changing it silently.
+
+## Native Windows setup (manual)
 
 Run PowerShell from the checkout root:
 
@@ -40,7 +92,7 @@ usable, but classification cannot report a successful save. Stop native
 Streamlit with **Ctrl+C** in its launch terminal. Set environment changes in
 that terminal and relaunch; another terminal does not modify an existing process.
 
-## Docker application and MinIO
+## Docker application and MinIO (manual and advanced)
 
 [Dockerfile](Dockerfile) packages runtime and validation targets.
 [compose.yaml](compose.yaml) starts app only;
@@ -301,7 +353,7 @@ an empty console filter or a failed GET is not proof of non-completion.
 | [classification coordinator](app/services/classification.py) | Request identity, background state, label/model guards and confirmed save |
 | [prediction store](app/services/prediction_store.py) | Complete record validation and no-retry MinIO writes |
 | [logging](app/utils/logging_config.py) | Structured non-sensitive operational events |
-| [scripts/check_deployment.py](scripts/check_deployment.py) | Safe file/health checks and explicit owned-key probe |
+| [scripts/local.ps1](scripts/local.ps1), [scripts/check_deployment.py](scripts/check_deployment.py) | Interactive local launcher; safe file/health checks and explicit owned-key probe |
 | [tests](tests), [CI](.github/workflows/ci.yml), [specs](specs) | Unit/smoke/concurrency/integration gates and design/evidence |
 
 ```powershell

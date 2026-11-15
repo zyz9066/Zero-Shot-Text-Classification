@@ -3,12 +3,30 @@
 **Implementation guide**: Deployment files and diagnostics are present.
 Executed evidence is recorded below. Licensed storage and one full-model/browser
 classification and normal deployment lifecycle walkthrough passed locally.
-The repository-only reviewer and hosted checks remain unrun; code presence is
-not a claim that those checks passed.
+The repository-only reviewer walkthrough passed; hosted checks remain unrun.
+The interactive launcher added later has separate validation evidence below.
 
 **Re-plan note**: U1/U2 use port-independent automated fixtures and a single
 filtered root build context. Tasks were regenerated and analyzed before
 implementation.
+
+## Interactive Windows launcher
+
+The main [README quickstart](../../README.md#quickstart-full-local-application)
+offers `.\scripts\local.ps1` for interactive setup and full start,
+`.\scripts\local.ps1 status` and `.\scripts\local.ps1 stop`, and
+`.\scripts\local.ps1 app` for the independent shell. It reuses `.env`, the
+existing preflight and Compose services. Credentials are requested for each full
+start and are not written to `.env`. Container status alone is not storage
+readiness; `.\scripts\local.ps1 check` runs the explicit write probe in section 3.
+
+**Launcher validation (2026-11-15)**: On Windows PowerShell 5.1, the deployment
+unit selector passed 55 tests with four Linux-only skips. Launcher tests exercised
+setup, failures and lifecycle commands with Docker stubbed, and tested the
+generated dotenv file with the real `uv` and preflight, including paths with
+spaces and `$`. Ruff lint/format and strict mypy passed. Docker was unavailable,
+so no live launcher, licensed storage probe, or new end-to-end deployment was
+run; the earlier deployment walkthroughs predate the launcher.
 
 **Implementation baseline (2026-11-15)**: Windows Python 3.13, uv 0.13.5,
 Docker 29.9.3 on a local Linux x86_64 engine. The initial combined unit, smoke
@@ -861,6 +879,6 @@ input or prediction JSON.
 | FR-024 | Locate retention/access/backup/TLS/locking limitations | Private backup/inspection and quiesced-owner review |
 | FR-025 | Account for every validation example and skipped prerequisite | Observed outcomes, not inferred usability/accessibility |
 
-Full repository-only sample classification, physical MinIO backup/restore,
-ready-model reuse/transfer, and participant/accessibility checks remain
-unverified until the required authorized walkthrough actually executes.
+The recorded repository-only walkthrough and cold ready-model reuse passed.
+Physical MinIO restore, real-model transfer, and participant/screen-reader
+checks remain unverified.
