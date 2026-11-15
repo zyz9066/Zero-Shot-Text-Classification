@@ -2,6 +2,7 @@ from pathlib import Path
 from types import SimpleNamespace
 from uuid import uuid4
 
+import pytest
 import streamlit as st
 from streamlit.testing.v1 import AppTest
 
@@ -74,8 +75,50 @@ def test_classification_shell_does_not_require_storage_credentials(
     assert not app.exception
 
 
+def test_blank_text_validation_is_exposed_and_retains_draft(monkeypatch) -> None:
+    monkeypatch.setattr(
+        model_provider,
+        "get_model_manager",
+        lambda: SimpleNamespace(
+            get_status=lambda _model_id: SimpleNamespace(resolved_revision="a" * 40),
+            list_status=lambda: (
+                SimpleNamespace(
+                    model_id="org/model",
+                    display_name="Test Model",
+                    availability="ready",
+                ),
+            ),
+        ),
+    )
+    monkeypatch.setattr(
+        label_manager,
+        "LabelManager",
+        lambda: SimpleNamespace(
+            list_sets=lambda: SimpleNamespace(
+                sets=(SimpleNamespace(id="labels-id", name="Topics", revision=1),)
+            )
+        ),
+    )
+    monkeypatch.setattr(
+        config_loader,
+        "load_app_settings",
+        lambda: SimpleNamespace(app_version="0.1.0"),
+    )
+
+    app = AppTest.from_file(str(APP_PATH)).run()
+    app.switch_page(CLASSIFICATION_PAGE).run(timeout=10)
+    app.text_area[0].set_value("   ")
+    app.button(key="classification_submit").click().run(timeout=10)
+
+    assert not app.exception
+    assert any("Enter non-blank text" in item.value for item in app.error)
+    assert app.text_area[0].value == "   "
+
+
+@pytest.mark.parametrize("initially_processing", [False, True])
 def test_classification_page_displays_only_a_confirmed_saved_result(
     monkeypatch,
+    initially_processing: bool,
 ) -> None:
     request_id = str(uuid4())
     request = ClassificationRequest(
@@ -100,7 +143,15 @@ def test_classification_page_displays_only_a_confirmed_saved_result(
     outcome = ClassificationOutcome("saved", request, "Prediction saved.", result)
 
     class SavedCoordinator:
+        def __init__(self):
+            self.polls = 0
+
         def poll(self):
+            self.polls += 1
+            if initially_processing and self.polls == 1:
+                return SubmissionStatus(
+                    "in_progress", request_id, "Classification is processing."
+                )
             return SubmissionStatus("saved", request_id, outcome.message, outcome)
 
     monkeypatch.setattr(

@@ -2,12 +2,18 @@ from __future__ import annotations
 
 import io
 import json
+from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
 
+from app.config.loader import load_minio_settings
 from app.config.settings import MinIOServiceSettings
-from app.services.prediction_store import PredictionStore, PredictionWriteError
+from app.services.prediction_store import (
+    PredictionStorageConfigurationError,
+    PredictionStore,
+    PredictionWriteError,
+)
 
 
 def make_record(
@@ -107,6 +113,36 @@ def test_existing_bucket_is_used_without_creation() -> None:
 
     assert client.created == []
     assert client.put_calls == 1
+
+
+def test_missing_credentials_identifies_setting_without_exposing_values(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    import app.services.prediction_store as storage
+
+    config_path = tmp_path / "app.yaml"
+    config_path.write_text("minio:\n  bucket: test-bucket\n", encoding="utf-8")
+    environment = {
+        "MINIO_ENDPOINT": "localhost:9000",
+        "MINIO_SECURE": "false",
+        "MINIO_ACCESS_KEY": "private-access-key",
+    }
+    monkeypatch.setattr(
+        storage,
+        "load_minio_settings",
+        lambda: load_minio_settings(config_path, environment),
+    )
+    client = FakeClient()
+
+    with pytest.raises(PredictionStorageConfigurationError) as error:
+        PredictionStore(client=client).save(make_record())
+
+    assert "MINIO_SECRET_KEY" in str(error.value)
+    assert "restart" in str(error.value)
+    assert "private-access-key" not in str(error.value)
+    assert str(config_path) not in str(error.value)
+    assert client.put_calls == 0
 
 
 def test_rejects_non_finite_scores_before_storage() -> None:

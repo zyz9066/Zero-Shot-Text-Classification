@@ -16,7 +16,10 @@ from app.services.classification import (
 )
 from app.services.label_manager import CatalogSnapshot, LabelManager, LabelManagerError
 from app.services.model_manager import ModelStatus
-from app.services.prediction_store import PredictionWriteError
+from app.services.prediction_store import (
+    PredictionStorageConfigurationError,
+    PredictionWriteError,
+)
 
 MODEL_ID = "org/model"
 MODEL_REVISION = "a" * 40
@@ -81,7 +84,9 @@ class FakeLabelManager:
 class FakeStore:
     def __init__(self) -> None:
         self.records: list[dict[str, object]] = []
-        self.error: PredictionWriteError | None = None
+        self.error: (
+            PredictionWriteError | PredictionStorageConfigurationError | None
+        ) = None
 
     def save(self, record: dict[str, object]) -> None:
         if self.error is not None:
@@ -138,6 +143,20 @@ def test_success_persists_snapshot_and_returns_only_after_save() -> None:
     assert len(store.records) == 1
     assert store.records[0]["input_text"] == "exact submitted text"
     assert store.records[0]["request_id"] == request.request_id
+
+
+def test_storage_configuration_detail_reaches_outcome() -> None:
+    service, _labels, store = make_service()
+    request = service.prepare_request("sample text", MODEL_ID, LABEL_ID)
+    message = "MINIO_SECRET_KEY: must be a non-empty string"
+    store.error = PredictionStorageConfigurationError(message)
+
+    outcome = service.execute(request)
+
+    assert outcome.status == "failed"
+    assert outcome.message == message
+    assert outcome.result is None
+    assert not store.records
 
 
 def test_valid_label_edit_does_not_change_captured_request_labels() -> None:

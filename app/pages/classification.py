@@ -40,7 +40,6 @@ def _show_outcome(status: SubmissionStatus) -> None:
                 for item in result.ranked_results
             ],
             hide_index=True,
-            use_container_width=True,
         )
     elif outcome.status == "indeterminate":
         st.error(
@@ -52,6 +51,16 @@ def _show_outcome(status: SubmissionStatus) -> None:
         )
     else:
         st.error(outcome.message)
+
+
+def _render_status(coordinator: SessionSubmissionCoordinator, *, polling: bool) -> None:
+    status = coordinator.poll()
+    if status.state == "in_progress" and status.request_id:
+        st.info(f"{status.message} Request ID: {status.request_id}")
+    elif status.outcome is not None:
+        if polling:
+            st.rerun()
+        _show_outcome(status)
 
 
 def render_classification() -> None:
@@ -69,11 +78,10 @@ def render_classification() -> None:
     if _COORDINATOR_KEY not in st.session_state:
         st.session_state[_COORDINATOR_KEY] = SessionSubmissionCoordinator()
     coordinator = st.session_state[_COORDINATOR_KEY]
-    status = coordinator.poll()
-    if status.state == "in_progress" and status.request_id:
-        st.info(f"{status.message} Request ID: {status.request_id}")
-    elif status.outcome is not None:
-        _show_outcome(status)
+    polling = coordinator.poll().state == "in_progress"
+    st.fragment(run_every=1 if polling else None)(_render_status)(
+        coordinator, polling=polling
+    )
 
     try:
         model_manager = get_model_manager()

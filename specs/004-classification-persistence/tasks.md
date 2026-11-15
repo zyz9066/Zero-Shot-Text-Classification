@@ -102,3 +102,7 @@ After Phase 2, contributors can author inference, storage, orchestration, UI, co
 ### Incremental Delivery
 
 Deliver the single P1 story as one coherent increment because displaying a prediction without its required MinIO record is not a successful classification under the specification. Keep unit and smoke tests service-independent; add service-backed and human usability evidence separately.
+
+## Phase 5: Convergence
+
+- [X] T024 Complete and record the full-flow accessibility review, covering keyboard operation, accessible names for every control, and accessible validation, progress, save, and error updates; fix any gaps per SC-008 (partial).

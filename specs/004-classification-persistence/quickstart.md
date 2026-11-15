@@ -11,6 +11,11 @@
 
 The application shell and classification page can start without MinIO credentials; credentials are required only when a prediction is written.
 
+If storage configuration fails, the page identifies a missing or invalid setting
+without displaying its value. Set it in the PowerShell terminal used to launch
+Streamlit and restart the app; another terminal's environment is not inherited
+by an already-running app.
+
 ## Launch and classify
 
 ```powershell
@@ -26,6 +31,10 @@ uv run --locked streamlit run app\streamlit_app.py
 Set secrets through your normal secure environment configuration rather than committing or recording their values. Omit `MINIO_BUCKET` to use the configured/default bucket. In the Classification page, confirm the storage notice, choose a ready model and saved label set, enter text, and submit. A successful request displays one top class and every label's finite score in descending order, plus model provenance and timestamp, only after MinIO confirms the write. Scores are not described as calibrated probabilities. Input that exceeds the full model pair limit is rejected without truncation or splitting and remains available for editing.
 
 During an active submission, an exact repeat (same text, model ID/revision, and label-set ID/revision) shows the existing request status. A changed text or selection is retained but not started until the active request finishes. A later intentional request receives a new request ID.
+
+While a request is active, its status is checked automatically once per second.
+Completion displays the saved result or error without resubmitting. Polling stops
+after completion and does not start another inference or storage write.
 
 ## Inspect records and recover uncertain writes
 
@@ -66,11 +75,16 @@ Expected result: write one complete record and read it back; the test removes on
 
 ## Validation record
 
+- Automatic completion refresh: an isolated browser test with a delayed fake
+  worker displayed the saved result without further interaction, preserved the
+  draft, removed the processing message, and executed the worker exactly once.
+  Classification smoke tests: **7 passed**; related Ruff checks and strict mypy
+  passed. This check did not contact MinIO or download models.
 - Unit, smoke, and cooperating-process tests: **174 passed** with the command above.
 - Ruff lint: **passed**. Ruff formatting: **95 files already formatted**. Strict mypy: **passed for 21 application source files**.
 - Locked versions used for verification: PyTorch `2.15.0+cpu`, Transformers `5.23.0`, Hugging Face Hub `2.4.0`, and MinIO client `7.2.20`. Keeping Hub 2.x avoids breaking the existing `hf cache prune` model-management workflow.
 - MinIO service-backed integration: **not run**; no isolated `MINIO_TEST_BUCKET` service configuration was provided. The opt-in test was confirmed to skip.
-- Accessibility check: AppTest verified saved, active/blocked, and indeterminate outcome messages. The browser accessibility snapshot confirmed explicit names for Model, Candidate-label set, and Text to classify, plus alert/status roles for trusted-environment guidance and the storage notice. Keyboard Tab navigation reached the named model and text controls, and keyboard-entered text remained visible. A manual screen-reader session was not available; this is not a WCAG conformance claim.
+- Accessibility check: AppTest verified saved, active/blocked, indeterminate, and blank-text validation messages, including retaining the invalid draft. In a live browser with ready model/label fixtures, Tab navigation reached the Model and Candidate-label set comboboxes, Text to classify textbox, and Classify text button; the accessibility snapshot exposed their names. The storage notice appeared as a status and the trusted-environment warning and blank-input validation appeared as alerts. AppTest also verified active/progress updates through info messages, saved updates through success messages, and failure updates through error messages. A manual screen-reader session was not available; this is not a WCAG conformance claim.
 - First-attempt usability target (SC-006): **unverified**; no participant exercise was conducted. Do not claim that the 90% target has been met.
 
 ## Usability check

@@ -16,7 +16,7 @@ from minio import Minio
 from minio.error import S3Error
 
 from app.config.loader import load_minio_settings
-from app.config.settings import MinIOServiceSettings
+from app.config.settings import ConfigurationError, MinIOServiceSettings
 from app.utils.logging_config import configure_logging, log_event
 
 _LOGGER = configure_logging("prediction_storage")
@@ -280,12 +280,13 @@ class PredictionStore:
 
         try:
             settings = self.settings or load_minio_settings()
-            client = self._client or create_minio_client(settings)
-        except Exception:
+        except ConfigurationError as error:
             raise PredictionStorageConfigurationError(
-                "Prediction storage configuration is unavailable. Check MinIO "
-                "settings and credentials."
+                f"Prediction storage configuration is invalid: {error}. "
+                "Correct the setting in the terminal used to launch Streamlit "
+                "and restart the app."
             ) from None
+        client = self._client or create_minio_client(settings)
 
         self._ensure_bucket(settings, client, request_id)
         key = f"predictions/{request_id}.json"

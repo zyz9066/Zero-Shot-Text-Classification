@@ -292,7 +292,7 @@ class ClassificationService:
                 "The selected label set is no longer available or valid. Select it "
                 "again before submitting.",
             )
-        except PredictionStorageConfigurationError:
+        except PredictionStorageConfigurationError as error:
             log_event(
                 _LOGGER,
                 "classification.request",
@@ -304,8 +304,7 @@ class ClassificationService:
             return ClassificationOutcome(
                 "failed",
                 request,
-                "Prediction storage configuration is unavailable. Check MinIO "
-                "settings and retry.",
+                str(error),
             )
         except Exception:
             log_event(
